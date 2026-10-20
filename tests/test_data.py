@@ -40,7 +40,7 @@ def test_dataset_items(dataset):
     root, cfg, _ = dataset
     item = ReconstructionDataset(str(root / "train"))[0]
     assert item["images"]["sa"].shape == (cfg.depth, cfg.height, cfg.width)
-    assert item["images"]["la2ch"].shape == (1, cfg.height, cfg.width)
+    assert item["images"]["2ch"].shape == (1, cfg.height, cfg.width)
     assert item["contour_sa"].shape == (cfg.height, cfg.width, cfg.depth)
     assert item["contour_sa"].sum() > 0 and item["contour_4ch"].sum() > 0
     m = MotionDataset(str(root / "train"), cfg.sa_slices, frame="es")[0]

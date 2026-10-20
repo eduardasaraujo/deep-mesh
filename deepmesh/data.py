@@ -71,9 +71,9 @@ class Subject:
 
 def _images(subj, t):
     """Network inputs: SAX as (D, H, W) so slices are channels, LAX as (1, H, W)."""
-    return dict(sa=torch.from_numpy(subj.frame("sa", t).transpose(2, 0, 1).copy()),
-                la2ch=torch.from_numpy(subj.frame("2ch", t))[None],
-                la4ch=torch.from_numpy(subj.frame("4ch", t))[None])
+    return {"sa": torch.from_numpy(subj.frame("sa", t).transpose(2, 0, 1).copy()),
+            "2ch": torch.from_numpy(subj.frame("2ch", t))[None],
+            "4ch": torch.from_numpy(subj.frame("4ch", t))[None]}
 
 
 def list_subjects(split_dir):
