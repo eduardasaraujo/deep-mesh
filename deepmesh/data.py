@@ -129,13 +129,19 @@ class MotionDataset(Dataset):
 
     def __getitem__(self, idx):
         s = self.subjects[idx]
-        ed = s.meta["ed_frame"]
         if self.frame is None:
-            t = int(np.random.randint(0, s.meta["n_frames"]))
+            # torch RNG: correctly re-seeded in every DataLoader worker
+            t = int(torch.randint(s.meta["n_frames"], ()))
         elif self.frame == "es":
             t = s.meta["es_frame"]
         else:
             t = int(self.frame)
+        # same keys in every item of a batch: the ES surface only in "es" mode
+        return self.get(idx, t, with_es_surface=self.frame == "es")
+
+    def get(self, idx, t, with_es_surface=False):
+        s = self.subjects[idx]
+        ed = s.meta["ed_frame"]
         gt_vertices = s.array("gt_vertices.npy")
         item = dict(
             name=s.name, frame=t, images_ed=_images(s, ed), images_t=_images(s, t), affines=s.affines(),
@@ -146,6 +152,7 @@ class MotionDataset(Dataset):
         )
         if gt_vertices is not None:
             item["gt_verts_t"] = torch.from_numpy(gt_vertices[t])
-        if self.frame == "es":  # same keys in every item of a batch
+            item["gt_verts_ed"] = torch.from_numpy(gt_vertices[ed])
+        if with_es_surface:
             item["gt_surface"] = torch.from_numpy(s.array("gt_surface_es.npz"))
         return item

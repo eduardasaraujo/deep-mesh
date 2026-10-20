@@ -18,7 +18,6 @@ from deepmesh.data import ReconstructionDataset  # noqa: E402
 from deepmesh.engine import load_checkpoint  # noqa: E402
 from deepmesh.pipeline import build_deformation_net, reconstruct, to_device  # noqa: E402
 
-COLUMNS = ["hd_sa", "hd_2ch", "hd_4ch", "bf_sa", "bf_2ch", "bf_4ch", "surface_dist", "vertex_err"]
 
 
 def evaluate(verts, item, cfg):
@@ -30,17 +29,6 @@ def evaluate(verts, item, cfg):
                              d.sa_spacing[0], d.lax_spacing[0], e.slice_band)
     row["surface_dist"] = Mt.surface_distance(verts, item["gt_surface"].numpy())
     return row
-
-
-def print_table(title, summary):
-    print(f"\n{title}")
-    print("  " + " ".join(f"{c:>14s}" for c in COLUMNS))
-    cells = []
-    for c in COLUMNS:
-        s = summary.get(c)
-        scale = 100 if c.startswith("bf") else 1
-        cells.append(f"{s['mean'] * scale:6.2f}({s['std'] * scale:5.2f})" if s else f"{'-':>14s}")
-    print("  " + " ".join(f"{x:>14s}" for x in cells))
 
 
 def main():
@@ -75,8 +63,8 @@ def main():
     with open(os.path.join(out_dir, f"{args.split}_metrics.json"), "w") as f:
         json.dump(dict(summary=summary, subjects=rows), f, indent=1)
     print("HD in mm, BoundF in %, surface distance and vertex error in mm; mean(std)")
-    print_table("template alinhado (sem rede)", summary["template_only"])
-    print_table("DeepMesh (reconstrução ED)", summary["deepmesh"])
+    Mt.print_table("template alinhado (sem rede)", summary["template_only"])
+    Mt.print_table("DeepMesh (reconstrução ED)", summary["deepmesh"])
     print(f"\nsaved {out_dir}/{args.split}_metrics.json")
 
 

@@ -106,3 +106,17 @@ def summarize(rows):
         vals = np.array([r[k] for r in rows if r[k] is not None], float)
         summary[k] = dict(mean=float(vals.mean()), std=float(vals.std())) if len(vals) else None
     return summary
+
+
+COLUMNS = ["hd_sa", "hd_2ch", "hd_4ch", "bf_sa", "bf_2ch", "bf_4ch", "surface_dist", "vertex_err"]
+
+
+def print_table(title, summary):
+    print(f"\n{title}")
+    print("  " + " ".join(f"{c:>14s}" for c in COLUMNS))
+    cells = []
+    for c in COLUMNS:
+        s = summary.get(c)
+        scale = 100 if c.startswith("bf") else 1
+        cells.append(f"{s['mean'] * scale:6.2f}({s['std'] * scale:5.2f})" if s else f"{'-':>14s}")
+    print("  " + " ".join(f"{x:>14s}" for x in cells))
