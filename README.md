@@ -48,7 +48,7 @@ Radeon 680M não são suportadas oficialmente, mas costumam funcionar com
 ## Como rodar (pipeline completo)
 
 ```bash
-python scripts/generate_synthetic.py        # 100/10/20 sujeitos em data/synthetic (~860 MB)
+python scripts/generate_synthetic.py        # 400/20/20 sujeitos em data/synthetic (~2,9 GB)
 python scripts/train_reconstruction.py      # etapa 1: H_D com L_recon (Eq. 11)
 python scripts/test_reconstruction.py       # Tabela I: malha ED reconstruída
 python scripts/export_ed_meshes.py          # salva a malha ED prevista de cada sujeito
@@ -121,7 +121,37 @@ com os frames ED/ES. O `gt_vertices.npy` é opcional.
 
 ## Resultados (config `small`, dados sintéticos)
 
-_Em preenchimento._
+400/20/20 sujeitos (treino/validação/teste), CPU, redes com `width=16`, `width_3d=8`.
+HD em mm, BoundF em %, distância de superfície e erro por vértice em mm; média (desvio).
+
+### Etapa 1 — reconstrução da malha ED (Tabela I)
+
+50 épocas (5.000 iterações, ~40 min); checkpoint com a menor loss de validação (época 14).
+
+| Método | HD SAX | HD 2CH | HD 4CH | BoundF SAX | BoundF 2CH | BoundF 4CH | Dist. superfície | Erro por vértice |
+|---|---|---|---|---|---|---|---|---|
+| Template alinhado (sem rede) | 14,36 (4,95) | 8,25 (2,50) | 8,28 (2,49) | 81,17 (7,12) | 94,65 (3,19) | 94,36 (4,13) | 2,30 (0,50) | 5,07 (1,46) |
+| DeepMesh | **13,23** (4,94) | 8,26 (2,60) | 8,91 (2,84) | **82,73** (7,35) | 94,76 (3,16) | 94,39 (3,31) | 2,31 (0,51) | 5,18 (1,56) |
+
+O que aprendemos nesta etapa:
+
+* A rede corrige principalmente a **extensão base–ápice** (HD e BoundF no SAX), mas no teste
+  não melhora a distância de superfície. No treino o Chamfer cai de 15,3 para 12,2 mm², enquanto
+  na validação fica em ~15: com este orçamento de iterações (~5 mil, contra ~24 mil no artigo) a
+  rede **decora** os sujeitos em vez de generalizar.
+* Com 100 sujeitos de treino o gap era ainda maior (`runs/small/archive/`). Ir para 400 sujeitos,
+  como no artigo, reduziu, mas não eliminou o gap.
+* Não é o BatchNorm: recalcular as estatísticas de BN de forma exata ("precise BN") dá o
+  mesmo resultado que o modo `eval`.
+* Uma causa provável é estrutural: a rede só vê as imagens, não a geometria dos cabeçalhos.
+  A posição do template no espaço SAX (que depende dos planos LAX) precisa ser inferida
+  indiretamente do conteúdo das imagens.
+* Otimizar o campo denso **diretamente** (sem rede) com as mesmas losses leva o Chamfer de 15,5
+  a 2,1 mm² em 150 iterações. Isso confirma que as losses e os gradientes estão corretos e que o
+  gargalo é a rede aprender o mapeamento imagem → campo.
+* Otimizando **só** a L_shape, o mínimo não coincide com a superfície verdadeira (Chamfer 5,6
+  contra 0,8 otimizando só o Chamfer): o Hausdorff ponderado tem um piso que depende da
+  densidade de vértices no plano. Por isso o artigo combina as losses (Fig. 12).
 
 ## Referência
 
