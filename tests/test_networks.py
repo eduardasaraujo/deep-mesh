@@ -35,3 +35,4 @@ def test_initial_field_is_zero():
     x = images()
     assert DeformationNet(16, 4)(x).abs().max() == 0
     assert MotionNet(16, 4, 2)(x, x).abs().max() == 0
+

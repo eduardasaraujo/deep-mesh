@@ -19,7 +19,17 @@ def _set_by_path(d, path, value):
         d = d[k]
     if keys[-1] not in d:
         raise KeyError(f"unknown config key: {path}")
-    d[keys[-1]] = yaml.safe_load(value)
+    d[keys[-1]] = _parse_value(value)
+
+
+def _parse_value(text):
+    value = yaml.safe_load(text)
+    if isinstance(value, str):
+        try:  # YAML 1.1 reads "1e-3" as a string
+            return float(value)
+        except ValueError:
+            pass
+    return value
 
 
 def load_config(path, overrides=()):

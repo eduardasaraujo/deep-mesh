@@ -22,7 +22,7 @@ model:
   views: [sa, 2ch, 4ch] # ablação de vistas: remova 2ch/4ch para testar só SAX
 
 recon:
-  epochs: 100
+  epochs: 150
   batch_size: 4
   lr: 1.0e-4
   num_workers: 2
