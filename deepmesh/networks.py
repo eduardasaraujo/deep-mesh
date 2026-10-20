@@ -10,6 +10,7 @@ Both networks follow the reference implementation:
 * The vertex-wise displacement is then sampled from that field (geometry.py).
 
 With width=64 and width_3d=32 the layer sizes are those of the paper.
+The output layers are zero-initialised (see zero_init).
 """
 import torch
 from torch import nn
@@ -32,6 +33,16 @@ def conv3d(cin, cout, s=1):
 def deconv3d(cin, cout):
     return nn.Sequential(nn.ConvTranspose3d(cin, cout, 3, 2, 1, output_padding=1, bias=False),
                          nn.BatchNorm3d(cout), nn.ReLU(inplace=True))
+
+
+def zero_init(layer):
+    """Start from a zero displacement field: the template (H_D) or identity (H_M).
+
+    Not in the reference code, whose random initial fields move vertices by
+    several centimetres; with few training iterations this converges much faster.
+    """
+    nn.init.zeros_(layer.weight)
+    nn.init.zeros_(layer.bias)
 
 
 class LaxStem(nn.Module):
@@ -93,6 +104,7 @@ class DeformationNet(_MultiView):
             deconv2d(4 * w, 2 * w), conv2d(2 * w, 2 * w),
             deconv2d(2 * w, depth), conv2d(depth, depth))
         self.head = nn.Sequential(conv3d(1, 3), nn.Conv3d(3, 3, 1))
+        zero_init(self.head[-1])
 
     def forward(self, images):
         deepest = [feats[-1] for feats in self.encode(images)]
@@ -118,6 +130,7 @@ class MotionNet(_MultiView):
             deconv3d(4 * w3, 2 * w3), conv3d(2 * w3, 2 * w3),
             deconv3d(2 * w3, w3), conv3d(w3, w3))
         self.head = nn.Conv3d(w3, 3, 1)
+        zero_init(self.head)
 
     def forward(self, images_ed, images_t):
         size = images_ed["sa"].shape[-2:]

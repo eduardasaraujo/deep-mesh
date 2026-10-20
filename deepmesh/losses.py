@@ -6,8 +6,10 @@ written here in plain PyTorch so that the code also runs on CPU and AMD GPUs.
 """
 import math
 
+import numpy as np
 import torch
 import torch.nn.functional as F
+from scipy.spatial import cKDTree
 
 from deepmesh.geometry import warp
 from deepmesh.rasterizer import plane_probability, selection_threshold, to_plane
@@ -27,6 +29,9 @@ def laplacian_smoothing(verts, edges):
 @torch.no_grad()
 def _nearest(x, y, chunk=2048):
     """Index of the nearest point of y for every point of x. x (B, N, 3), y (B, M, 3)."""
+    if x.device.type == "cpu":  # a KD-tree is ~50x faster than brute force on CPU
+        idx = [cKDTree(yb.numpy()).query(xb.numpy())[1] for xb, yb in zip(x.detach(), y.detach())]
+        return torch.as_tensor(np.stack(idx), dtype=torch.long)
     return torch.cat([torch.cdist(x[:, s:s + chunk], y).argmin(-1) for s in range(0, x.shape[1], chunk)], 1)
 
 

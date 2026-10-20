@@ -16,6 +16,7 @@ def test_output_shapes_and_range(views):
     for phi in (phi_d, phi_m):
         assert phi.shape == (2, 3, 16, 32, 32)
         assert phi.abs().max() <= 1  # tanh: normalised displacement
+        phi.sum().backward()  # gradients reach the zero-initialised head
 
 
 def test_paper_sizes_match_reference_parameter_count():
@@ -28,3 +29,9 @@ def test_paper_sizes_match_reference_parameter_count():
 def test_sax_view_is_required():
     with pytest.raises(ValueError):
         DeformationNet(16, 4, views=("2ch", "4ch"))
+
+
+def test_initial_field_is_zero():
+    x = images()
+    assert DeformationNet(16, 4)(x).abs().max() == 0
+    assert MotionNet(16, 4, 2)(x, x).abs().max() == 0

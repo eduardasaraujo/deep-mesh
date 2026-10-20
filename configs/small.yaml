@@ -9,9 +9,9 @@ data:
   lax_spacing: [2.5, 2.5, 2.5]  # mm (i, j, espessura usada como unidade de distância ao plano)
   sa_slices: [4, 8, 12, 16, 20, 24, 28, 32, 36]  # fatias "adquiridas" (10 mm entre elas)
   n_frames: 20
-  n_train: 40
-  n_val: 8
-  n_test: 8
+  n_train: 100
+  n_val: 10
+  n_test: 20
   mesh_around: 96       # resolução do template (vértices por anel)
   mesh_long: 40         # nº de anéis apex->base por superfície
   seed: 0
@@ -22,7 +22,7 @@ model:
   views: [sa, 2ch, 4ch] # ablação de vistas: remova 2ch/4ch para testar só SAX
 
 recon:
-  epochs: 60
+  epochs: 100
   batch_size: 4
   lr: 1.0e-4
   num_workers: 2
