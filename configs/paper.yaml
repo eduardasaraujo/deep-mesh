@@ -1,0 +1,54 @@
+# Configuração do artigo (UK Biobank, GPU de 24 GB). Mantida como referência.
+data:
+  root: data/synthetic_paper
+  height: 128
+  width: 128
+  depth: 64
+  sa_spacing: [1.25, 1.25, 2.0]
+  lax_spacing: [1.25, 1.25, 2.0]
+  sa_slices: [12, 17, 22, 27, 32, 37, 42, 47, 52]
+  n_frames: 50
+  n_train: 400
+  n_val: 50
+  n_test: 80
+  mesh_around: 160
+  mesh_long: 68         # ~22k vértices, como o template de Bai et al.
+  seed: 0
+
+model:
+  width: 64
+  width_3d: 32
+  views: [sa, 2ch, 4ch]
+
+recon:
+  epochs: 300
+  batch_size: 5
+  lr: 1.0e-4
+  num_workers: 4
+  tau: 3.0
+  lambda1: 20.0
+  beta1: 0.5
+  gamma1: 0.5
+  shape_weight: 1.0
+  sa_slice_stride: 1
+
+motion:
+  epochs: 300
+  batch_size: 8
+  lr: 1.0e-4
+  num_workers: 4
+  tau: 3.0
+  lambda2: 150.0
+  beta2: 20.0
+  gamma2: 0.5
+  shape_weight: 1.0
+  use_gt_ed_mesh: false
+
+eval:
+  slice_band: 0.3
+  sa_eval_slices: [1, 4, 7]
+
+output:
+  models: models/paper
+  runs: runs/paper
+  results: outputs/paper

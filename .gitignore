@@ -1,0 +1,13 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# dados, modelos e saídas (gerados localmente, não versionar)
+data/
+models/
+runs/
+outputs/
+*.pth
+*.nii.gz

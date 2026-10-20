@@ -1,0 +1,55 @@
+# Configuração reduzida para rodar em CPU (dados sintéticos).
+# Mesma arquitetura e losses do artigo, mas com imagens menores e redes mais estreitas.
+data:
+  root: data/synthetic
+  height: 64            # H da imagem (linhas)
+  width: 64             # W da imagem (colunas)
+  depth: 48             # D = nº de fatias da pilha SAX reamostrada (= canais da entrada 2D)
+  sa_spacing: [2.5, 2.5, 2.5]   # mm (i, j, k)
+  lax_spacing: [2.5, 2.5, 2.5]  # mm (i, j, espessura usada como unidade de distância ao plano)
+  sa_slices: [4, 8, 12, 16, 20, 24, 28, 32, 36]  # fatias "adquiridas" (10 mm entre elas)
+  n_frames: 20
+  n_train: 40
+  n_val: 8
+  n_test: 8
+  mesh_around: 96       # resolução do template (vértices por anel)
+  mesh_long: 40         # nº de anéis apex->base por superfície
+  seed: 0
+
+model:
+  width: 16             # largura base do encoder 2D (artigo: 64)
+  width_3d: 8           # largura base da parte 3D da rede de movimento (artigo: 32)
+  views: [sa, 2ch, 4ch] # ablação de vistas: remova 2ch/4ch para testar só SAX
+
+recon:
+  epochs: 60
+  batch_size: 4
+  lr: 1.0e-4
+  num_workers: 2
+  tau: 3.0
+  lambda1: 20.0         # L_smooth
+  beta1: 0.5            # L_surf (Chamfer)
+  gamma1: 0.5           # L_reg (Huber do campo denso)
+  shape_weight: 1.0     # L_shape
+  sa_slice_stride: 1    # usar todas as fatias SAX na L_shape da reconstrução
+
+motion:
+  epochs: 40
+  batch_size: 4
+  lr: 1.0e-4
+  num_workers: 2
+  tau: 3.0
+  lambda2: 150.0        # L_smooth
+  beta2: 20.0           # L_sim
+  gamma2: 0.5           # L_reg
+  shape_weight: 1.0     # L_shape
+  use_gt_ed_mesh: false # true = usa a malha ED verdadeira em vez da reconstruída (debug)
+
+eval:
+  slice_band: 0.3       # |d| < 0.3 voxel para extrair o contorno da malha (código original)
+  sa_eval_slices: [1, 4, 7]  # índices (dentro de sa_slices) usados para o HD no SAX
+
+output:
+  models: models/small
+  runs: runs/small
+  results: outputs/small

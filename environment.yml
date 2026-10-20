@@ -1,0 +1,11 @@
+name: deepmesh
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      # CPU por padrão. Para GPU NVIDIA troque o índice por .../whl/cu121;
+      # para AMD (ROCm) por .../whl/rocm6.1 (veja o README).
+      - --extra-index-url https://download.pytorch.org/whl/cpu
+      - -r requirements.txt
