@@ -153,6 +153,62 @@ O que aprendemos nesta etapa:
   contra 0,8 otimizando só o Chamfer): o Hausdorff ponderado tem um piso que depende da
   densidade de vértices no plano. Por isso o artigo combina as losses (Fig. 12).
 
+### Etapa 2 — rastreamento ED → ES (Tabela II)
+
+Partindo da malha ED **reconstruída** pela etapa 1. 100 épocas (10.000 iterações, ~1h50 em CPU).
+O baseline "sem movimento" usa a própria malha ED como previsão do ES.
+
+| Método | HD SAX | HD 2CH | HD 4CH | BoundF SAX | BoundF 2CH | BoundF 4CH | Dist. superfície | Erro por vértice |
+|---|---|---|---|---|---|---|---|---|
+| Sem movimento | 9,80 (2,18) | 14,88 (4,98) | 14,89 (4,53) | 75,02 (5,30) | 89,81 (3,03) | 91,24 (2,74) | 3,22 (0,33) | 7,72 (1,97) |
+| DeepMesh, 15 épocas | 9,56 (2,08) | 14,33 (4,54) | 14,29 (4,50) | 76,09 (4,77) | 90,45 (2,91) | 91,69 (2,36) | 3,19 (0,32) | 7,83 (2,08) |
+| DeepMesh, 100 épocas | **8,20** (1,92) | **11,48** (3,97) | **11,95** (3,88) | **78,43** (5,32) | **92,54** (2,86) | **92,90** (2,54) | **3,18** (0,36) | 8,18 (2,61) |
+
+<p align="center"><img src="docs/figures/contours.png" width="85%"></p>
+
+*Malha prevista (vermelho) e contorno verdadeiro (verde) ao longo do ciclo, sujeito de teste 0
+(Fig. 7 do artigo). Animação: [docs/figures/cycle.gif](docs/figures/cycle.gif); malhas ED/ES:
+[docs/figures/meshes.png](docs/figures/meshes.png); curvas de treino: [docs/figures/curves.png](docs/figures/curves.png).*
+
+O que aprendemos nesta etapa:
+
+* O rastreamento **melhora todos os contornos** em relação a "sem movimento": HD de −16% no SAX
+  a −23% no 2CH, e BoundF de +1,7 a +3,4 pontos. O ganho é maior nas vistas LAX, onde aparece o
+  encurtamento longitudinal (a base desce cerca de 1 cm na sístole).
+* Com 1.500 iterações o ganho era quase nulo, e com 10.000 a validação ainda estava caindo:
+  o método precisa de muitas iterações (o artigo usa ~24 mil).
+* A distância de superfície e o erro por vértice **não melhoram**. Decompondo o erro no ES:
+  o componente **normal** à superfície fica igual (3,48 → 3,54 mm), dominado pelo erro da malha
+  ED reconstruída na etapa 1, que o movimento herda. O componente **tangencial** cresce um pouco
+  (6,28 → 6,77 mm): deslizamentos ao longo da superfície (como a torção) não aparecem nos
+  contornos nem no miocárdio sem textura (problema da abertura). Mesmo otimizando o campo
+  diretamente, sem rede, o erro de movimento por vértice só cai de 4,9 para ~4,1 mm. Por isso o
+  artigo avalia com contornos e superfície, não por vértice.
+* Com intensidades em [0, 1], a L_sim vale ~0,006. Com β2 = 20, ela pesa pouco perto da
+  L_shape (~27). Aumentar β2 para 2000 não acelerou o aprendizado (teste de 4 épocas).
+
+### Ablação de vistas (Tabela IV)
+
+Mesmo orçamento para os dois (15 épocas = 1.500 iterações), avaliados no ES:
+
+| Vistas | HD SAX | HD 2CH | HD 4CH | BoundF SAX | BoundF 2CH | BoundF 4CH | Dist. superfície |
+|---|---|---|---|---|---|---|---|
+| só SAX | **9,16** | 14,93 | 15,34 | **76,19** | 90,04 | 91,19 | 3,21 |
+| SAX + 2CH + 4CH | 9,56 | **14,33** | **14,29** | 76,09 | **90,45** | **91,69** | **3,19** |
+
+Mesmo padrão da Tabela IV do artigo: usar só SAX dá o melhor HD no próprio SAX (8,49 no artigo),
+enquanto adicionar 2CH e 4CH melhora as vistas longas. Só com SAX, a malha **piora** no 2CH/4CH
+em relação a "sem movimento" (14,93/15,34 contra 14,88/14,89 mm), porque o movimento através do
+plano SAX não é observado. Com o treino curto, esta comparação é indicativa.
+
+### Próximos passos sugeridos
+
+* Rodar a config `paper` numa GPU (≥ 24 GB) com o mesmo código, ou treinar mais em CPU
+  (`--set motion.epochs=...`): as curvas de validação ainda estavam caindo.
+* Separar o erro do movimento do erro da reconstrução treinando o movimento com a malha ED
+  verdadeira (`--set motion.use_gt_ed_mesh=true`).
+* Trocar os fantomas por dados reais com segmentações SAX/LAX, no formato descrito acima.
+
 ## Referência
 
 ```bibtex
