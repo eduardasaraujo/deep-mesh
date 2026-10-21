@@ -34,7 +34,7 @@ recon:
   sa_slice_stride: 1    # usar todas as fatias SAX na L_shape da reconstrução
 
 motion:
-  epochs: 15         # 1500 iterações
+  epochs: 100        # 400 sujeitos x 100 épocas = 10000 iterações (~1h50 em CPU)
   batch_size: 4
   lr: 1.0e-4
   num_workers: 2
