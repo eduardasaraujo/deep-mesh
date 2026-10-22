@@ -18,11 +18,15 @@ import urllib.request
 
 import nibabel as nib
 import numpy as np
+from scipy.ndimage import zoom
 
 MODEL_URL = "https://www.doc.ic.ac.uk/~wbai/data/ukbb_cardiac/trained_model/"
 MODELS = {"sa": "FCN_sa", "la_4ch": "FCN_la_4ch_seg4"}
 MYO_LABEL = {"sa": 2, "la_4ch": 2}
 LV_LABEL = {"sa": 1, "la_4ch": 1}
+# in-plane pixel size of the UK Biobank cines the networks were trained on (mm);
+# other datasets (e.g. Kaggle DSB, 0.6-1.9 mm) are resampled to it before inference
+TRAIN_SPACING = 1.8
 
 
 def download_models(model_dir, names=MODELS.values()):
@@ -58,7 +62,15 @@ class Segmenter:
             saver = tf1.train.import_meta_graph(meta)
             saver.restore(self.sess, model_path)
 
-    def __call__(self, image):
+    def __call__(self, image, spacing=None):
+        """image (X, Y, Z, T); spacing: in-plane pixel size (mm), resampled to TRAIN_SPACING if given."""
+        if spacing is not None:
+            factors = (spacing[0] / TRAIN_SPACING, spacing[1] / TRAIN_SPACING, 1, 1)
+            if max(abs(f - 1) for f in factors) > 0.05:
+                small = zoom(image.astype(np.float32), factors, order=1)
+                pred = self(small)
+                back = [image.shape[i] / small.shape[i] for i in range(2)] + [1, 1]
+                return zoom(pred, back, order=0)
         X, Y, Z, T = image.shape
         image = rescale_intensity(image)
         X2, Y2 = int(math.ceil(X / 16.0)) * 16, int(math.ceil(Y / 16.0)) * 16
@@ -86,7 +98,7 @@ def segment_subjects(native_root, model_dir, views=("sa", "la_4ch"), overwrite=F
             if not os.path.exists(src) or (os.path.exists(dst) and not overwrite):
                 continue
             nim = nib.load(src)
-            labels = seg(np.asanyarray(nim.dataobj).astype(np.float32))
+            labels = seg(np.asanyarray(nim.dataobj).astype(np.float32), nim.header.get_zooms()[:2])
             nib.save(nib.Nifti1Image(labels, nim.affine), dst)
             print(f"{name} {view}: labels {np.unique(labels).tolist()}")
         seg.close()
