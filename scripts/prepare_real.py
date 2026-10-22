@@ -65,7 +65,8 @@ def main():
 
     subjects = sorted(os.path.join(args.native_root, n) for n in os.listdir(args.native_root)
                       if os.path.exists(os.path.join(args.native_root, n, "seg_sa.nii.gz")))
-    os.makedirs(os.path.join(d.root, "_qc"), exist_ok=True)
+    for folder in ("_qc", "train", "val", "test"):
+        os.makedirs(os.path.join(d.root, folder), exist_ok=True)
     template = M.save_template(os.path.join(d.root, "template.npz"), d.mesh_around, d.mesh_long)
     rows = []
     with Pool(args.workers, _init, (d, template, fractions)) as pool:

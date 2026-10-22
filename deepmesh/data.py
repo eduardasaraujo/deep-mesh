@@ -81,6 +81,8 @@ def _images(subj, t):
 
 
 def list_subjects(split_dir):
+    if not os.path.isdir(split_dir):  # e.g. a split that received no subject
+        return []
     return [Subject(os.path.join(split_dir, n)) for n in sorted(os.listdir(split_dir))]
 
 

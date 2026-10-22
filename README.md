@@ -28,6 +28,7 @@ copiado para cá.
 | Treino/teste | etapa 1 (reconstrução ED) e etapa 2 (movimento) | `scripts/` |
 | Métricas | HD, BoundF, distância de superfície, erro por vértice | `deepmesh/metrics.py` |
 | Figuras | contornos ao longo do ciclo, malhas ED/ES, mapas de probabilidade, GIF | `scripts/visualize.py` |
+| Dados reais | DICOM (Kaggle) → NIfTI, segmentação com os modelos de Bai et al., preparação + controle de qualidade | `deepmesh/real/`, `scripts/*_real.py`, `notebooks/` |
 
 O mapa equação → função está em [docs/metodo.md](docs/metodo.md).
 
@@ -36,7 +37,7 @@ O mapa equação → função está em [docs/metodo.md](docs/metodo.md).
 ```bash
 conda env create -f environment.yml   # cria o ambiente "deepmesh" (PyTorch CPU)
 conda activate deepmesh
-python -m pytest                      # 22 testes
+python -m pytest                      # 26 testes
 ```
 
 Para GPU NVIDIA, instale o PyTorch com CUDA (`--index-url https://download.pytorch.org/whl/cu121`).
@@ -87,12 +88,42 @@ sintéticos** (`deepmesh/synthetic/phantom.py`) que produz dados com a mesma est
   topologia (como as malhas de *marching cubes* do artigo) e, algo que dados reais não
   têm, a correspondência verdadeira dos vértices em todos os frames.
 
-**Dados reais no Colab:** [notebooks/01_baixar_cmrxrecon.ipynb](notebooks/01_baixar_cmrxrecon.ipynb)
-baixa o CMRxRecon 2023 (cine SAX + 2CH/3CH/4CH com segmentações, acesso livre com conta no
-Synapse) direto para o Google Drive e extrai só o cine totalmente amostrado e as segmentações.
-O token do Synapse fica nos *Secrets* do Colab, nunca no notebook.
+### Dados reais: Kaggle Data Science Bowl + segmentações de Bai et al.
 
-Para usar dados reais, basta gravar cada sujeito no mesmo formato
+Não há base pública de acesso imediato com o miocárdio segmentado à mão no SAX, 2CH e 4CH.
+A alternativa mais próxima do UK Biobank que dá para usar na hora:
+
+* **Imagens:** [Second Annual Data Science Bowl](https://www.kaggle.com/competitions/second-annual-data-science-bowl)
+  (Kaggle), ~1.100 pacientes com cine SAX + 2CH + 4CH em DICOM, com a geometria completa nos
+  cabeçalhos. Basta uma conta no Kaggle com telefone verificado e aceitar as regras.
+* **Segmentações:** as redes pré-treinadas do [ukbb_cardiac](https://github.com/baiwenjia/ukbb_cardiac)
+  (W. Bai, coautor do DeepMesh; Apache-2.0), treinadas **no UK Biobank**. `FCN_sa` segmenta o
+  miocárdio no SAX e `FCN_la_4ch_seg4` no 4CH. O modelo de 2CH só segmenta o átrio, então o
+  **2CH entra só como imagem** e a L_shape usa SAX + 4CH (`model.shape_views`).
+
+Pipeline (o notebook [notebooks/02_kaggle_dsb_deepmesh.ipynb](notebooks/02_kaggle_dsb_deepmesh.ipynb)
+faz tudo no Colab, com GPU, retomando de onde parou se a sessão cair):
+
+```bash
+python scripts/dsb_to_nifti.py second-annual-data-science-bowl.zip --out data/native   # DICOM -> NIfTI
+python scripts/segment_real.py data/native                                             # precisa de TensorFlow
+python scripts/prepare_real.py data/native --config configs/real.yaml                  # formato DeepMesh + QC
+python scripts/qc_figure.py data/dsb/train/<sujeito> qc.png --config configs/real.yaml
+python scripts/train_reconstruction.py --config configs/real.yaml --resume             # e assim por diante
+```
+
+O pré-processamento reamostra o SAX na grade do artigo (128×128×64, com as 10 fatias adquiridas
+em k = 7, 12, …, 52), interpola os rótulos entre fatias por distância com sinal, recentra o 2CH e o
+4CH no VE, gera as superfícies verdadeiras ED/ES por *marching cubes* e descarta sujeitos que falham
+no controle de qualidade (poucas fatias com miocárdio, fração de ejeção implausível, planos LAX
+longe do VE, ou 4CH e SAX discordantes, por exemplo por apneias diferentes). O pipeline foi testado
+com os 2 sujeitos de demonstração do UK Biobank que acompanham o `ukbb_cardiac`.
+
+[notebooks/01_baixar_cmrxrecon.ipynb](notebooks/01_baixar_cmrxrecon.ipynb) baixa o CMRxRecon 2023
+(segmentações manuais) do Synapse para o Google Drive. Esse dataset exige cadastro e aprovação
+dos organizadores.
+
+Para usar outros dados reais, basta gravar cada sujeito no mesmo formato
 (veja o docstring de `scripts/generate_synthetic.py`): `sa.nii.gz`, `2ch.nii.gz`,
 `4ch.nii.gz` (+ `*_myo.nii.gz`) com afins corretas, `template_aligned.npy`
 (use `mesh.align_template`), `gt_surface_ed.npz`/`gt_surface_es.npz` e `meta.json`
@@ -111,6 +142,8 @@ com os frames ED/ES. O `gt_vertices.npy` é opcional.
   original, os vértices começavam deslocados vários centímetros.
 * **Contornos calculados dos rótulos** no carregamento, em vez de arquivos `.npy` pré-computados.
 * **Normalização exata para `align_corners=True`** (2i/(H−1) − 1, e não (i − H/2)/(H/2)).
+* **Com dados reais**, o eixo do template continua vindo dos planos 2CH/4CH (como na Fig. 11), mas o
+  centro vem do VE segmentado: nos dados reais os planos raramente se cruzam no centro do VE.
 * As redes são parametrizadas pela largura. Com `width=64`, `width_3d=32` o número de
   parâmetros é **idêntico** ao do original (38.335.043 e 21.764.323; há um teste para isso).
 
@@ -121,6 +154,9 @@ com os frames ED/ES. O `gt_vertices.npy` é opcional.
   comparáveis** aos números do artigo (UK Biobank, GPU de 24 GB, 300 épocas).
 * Os métodos de comparação da Tabela II (FFD, dDemons, 3D-UNet, MulViMotion, MeshMotion)
   não estão no repositório original e não foram reimplementados.
+* **Dados reais (Kaggle):** os rótulos são automáticos (modelos treinados no UK Biobank, aplicados a
+  outros scanners), não manuais; o 2CH não é supervisionado; as superfícies verdadeiras vêm de fatias
+  SAX a ~10 mm, sem a super-resolução usada no artigo, e por isso ficam aproximadas na base e no ápice.
 * Na config `small`, o pixel tem 2,5 mm. As tolerâncias do BoundF (1 a 5 pixels) ficam,
   portanto, duas vezes mais frouxas em mm que no artigo (1,25 mm).
 

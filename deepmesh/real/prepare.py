@@ -19,7 +19,7 @@ import os
 
 import nibabel as nib
 import numpy as np
-from scipy.ndimage import distance_transform_edt, map_coordinates
+from scipy.ndimage import distance_transform_edt, gaussian_filter, label, map_coordinates
 from skimage.measure import marching_cubes
 
 from deepmesh import mesh as M
@@ -67,10 +67,19 @@ def to_uint8(image, lo, hi):
     return (np.clip((image - lo) / max(hi - lo, 1e-6), 0, 1) * 255).astype(np.uint8)
 
 
-def surface(sdf, affine):
-    """Closed iso-surface sdf = 0 of a (H, W, D) volume, as world vertices + faces."""
-    padded = np.pad(sdf, 1, constant_values=OUTSIDE)
-    verts, faces, _, _ = marching_cubes(padded, level=0.0)
+def surface(sdf, affine, sigma=(1.0, 1.0, 1.5)):
+    """Closed myocardium surface from a (H, W, D) signed distance volume (world vertices + faces).
+
+    Only the largest connected component is kept (removes stray blobs of the
+    segmentation) and the mask is smoothed a little, mostly across slices, so that
+    the staircase left by the ~10 mm slice spacing does not dominate the GT mesh.
+    """
+    mask = sdf < 0
+    comps, n = label(mask)
+    if n > 1:
+        mask = comps == (np.argmax(np.bincount(comps.ravel())[1:]) + 1)
+    padded = np.pad(gaussian_filter(mask.astype(np.float32), sigma), 1)
+    verts, faces, _, _ = marching_cubes(padded, level=0.5)
     world = (verts - 1) @ affine[:3, :3].T + affine[:3, 3]
     return world.astype(np.float32), faces.astype(np.int64)
 
