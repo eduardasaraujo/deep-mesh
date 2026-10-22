@@ -87,6 +87,11 @@ sintéticos** (`deepmesh/synthetic/phantom.py`) que produz dados com a mesma est
   topologia (como as malhas de *marching cubes* do artigo) e, algo que dados reais não
   têm, a correspondência verdadeira dos vértices em todos os frames.
 
+**Dados reais no Colab:** [notebooks/01_baixar_cmrxrecon.ipynb](notebooks/01_baixar_cmrxrecon.ipynb)
+baixa o CMRxRecon 2023 (cine SAX + 2CH/3CH/4CH com segmentações, acesso livre com conta no
+Synapse) direto para o Google Drive e extrai só o cine totalmente amostrado e as segmentações.
+O token do Synapse fica nos *Secrets* do Colab, nunca no notebook.
+
 Para usar dados reais, basta gravar cada sujeito no mesmo formato
 (veja o docstring de `scripts/generate_synthetic.py`): `sa.nii.gz`, `2ch.nii.gz`,
 `4ch.nii.gz` (+ `*_myo.nii.gz`) com afins corretas, `template_aligned.npy`
