@@ -74,12 +74,14 @@ def _mean(values):
     return float(np.mean(values)) if values else None
 
 
-def contour_metrics(verts, affines, contours, sa_slices, sa_eval_slices, spacing_sa, spacing_la, band):
+def contour_metrics(verts, affines, contours, sa_slices, sa_eval_slices, spacing_sa, spacing_la, band,
+                    views=("sa", "2ch", "4ch")):
     """HD and BoundF on SAX / 2CH / 4CH for one mesh.
 
     contours: 'sa' (H, W, S) for the planes `sa_slices`, '2ch'/'4ch' (H, W).
     SAX HD is averaged over the slices `sa_eval_slices` (indices into sa_slices,
-    slices 1/4/7 in the paper); SAX BoundF over all of them.
+    slices 1/4/7 in the paper); SAX BoundF over all of them. Views not in `views`
+    (no segmentation available) are reported as None.
     """
     H, W = contours["2ch"].shape
     out = {}
@@ -92,6 +94,9 @@ def contour_metrics(verts, affines, contours, sa_slices, sa_eval_slices, spacing
         bf_sa.append(mean_boundary_fscore(points_to_mask(pts, H, W), gt))
     out["hd_sa"], out["bf_sa"] = _mean(hd_sa), _mean(bf_sa)
     for v in ("2ch", "4ch"):
+        if v not in views:
+            out[f"hd_{v}"] = out[f"bf_{v}"] = None
+            continue
         pts = mesh_contour_points(verts, affines[f"{v}_inv"], 0, band, H, W)
         out[f"hd_{v}"] = contour_distances(pts, np.argwhere(contours[v]), spacing_la)[1]
         out[f"bf_{v}"] = mean_boundary_fscore(points_to_mask(pts, H, W), contours[v])

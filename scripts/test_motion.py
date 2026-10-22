@@ -21,7 +21,7 @@ from deepmesh import metrics as Mt  # noqa: E402
 from deepmesh.config import base_parser, get_device, load_config  # noqa: E402
 from deepmesh.data import MotionDataset  # noqa: E402
 from deepmesh.engine import load_checkpoint  # noqa: E402
-from deepmesh.pipeline import build_motion_net, to_device, track  # noqa: E402
+from deepmesh.pipeline import build_motion_net, shape_views, to_device, track  # noqa: E402
 
 
 def evaluate(verts, item, cfg):
@@ -30,7 +30,7 @@ def evaluate(verts, item, cfg):
     contours = {"sa": item["contour_sa"].numpy(), "2ch": item["contour_2ch"].numpy(),
                 "4ch": item["contour_4ch"].numpy()}
     row = Mt.contour_metrics(verts, affines, contours, d.sa_slices, e.sa_eval_slices,
-                             d.sa_spacing[0], d.lax_spacing[0], e.slice_band)
+                             d.sa_spacing[0], d.lax_spacing[0], e.slice_band, shape_views(cfg))
     row["surface_dist"] = Mt.surface_distance(verts, item["gt_surface"].numpy())
     row["vertex_err"] = Mt.vertex_error(verts, item["gt_verts_t"].numpy()) if "gt_verts_t" in item else None
     return row

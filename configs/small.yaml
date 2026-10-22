@@ -20,6 +20,7 @@ model:
   width: 16             # largura base do encoder 2D (artigo: 64)
   width_3d: 8           # largura base da parte 3D da rede de movimento (artigo: 32)
   views: [sa, 2ch, 4ch] # ablação de vistas: remova 2ch/4ch para testar só SAX
+  shape_views: null     # vistas supervisionadas pela L_shape; null = as mesmas de views
 
 recon:
   epochs: 50         # 400 sujeitos x 50 épocas = 5000 iterações

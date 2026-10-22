@@ -14,6 +14,11 @@ def to_device(x, device):
     return x
 
 
+def shape_views(cfg):
+    """Views supervised by L_shape; defaults to the input views (model.shape_views: null)."""
+    return getattr(cfg.model, "shape_views", None) or cfg.model.views
+
+
 def sa_shape(cfg):
     return (cfg.data.height, cfg.data.width, cfg.data.depth)
 
@@ -38,9 +43,12 @@ def reconstruct(net, batch, cfg):
 def reconstruction_loss(verts, field, batch, edges, cfg):
     """Eq. (11): L_recon = L_shape + l1 L_smooth + b1 L_surf + g1 L_reg."""
     c = cfg.recon
-    slices = list(range(0, cfg.data.depth, c.sa_slice_stride))
+    if getattr(c, "use_acquired_slices", False):  # real data: interpolated slices are not labels
+        slices = list(cfg.data.sa_slices)
+    else:
+        slices = list(range(0, cfg.data.depth, c.sa_slice_stride))
     contours = {"sa": batch["contour_sa"][..., slices], "2ch": batch["contour_2ch"], "4ch": batch["contour_4ch"]}
-    l_shape, _ = shape_loss(verts, batch["affines"], contours, slices, c.tau, cfg.model.views)
+    l_shape, _ = shape_loss(verts, batch["affines"], contours, slices, c.tau, shape_views(cfg))
     terms = dict(shape=l_shape, smooth=laplacian_smoothing(verts, edges),
                  surf=chamfer_distance(verts, batch["gt_surface"]), reg=huber_regularization(field))
     total = (c.shape_weight * terms["shape"] + c.lambda1 * terms["smooth"]
@@ -62,7 +70,7 @@ def motion_loss(verts, field, batch, edges, cfg):
     """Eq. (12): L_motion = L_shape + l2 L_smooth + b2 L_sim + g2 L_reg."""
     c = cfg.motion
     contours = {"sa": batch["contour_sa"], "2ch": batch["contour_2ch"], "4ch": batch["contour_4ch"]}
-    l_shape, _ = shape_loss(verts, batch["affines"], contours, cfg.data.sa_slices, c.tau, cfg.model.views)
+    l_shape, _ = shape_loss(verts, batch["affines"], contours, cfg.data.sa_slices, c.tau, shape_views(cfg))
     terms = dict(shape=l_shape, smooth=laplacian_smoothing(verts, edges),
                  sim=similarity_loss(batch["images_ed"]["sa"], batch["images_t"]["sa"], field),
                  reg=huber_regularization(field))

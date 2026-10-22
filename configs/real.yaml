@@ -1,0 +1,54 @@
+# Dados reais (Kaggle Data Science Bowl Cardiac + segmentações de Bai et al.) em GPU (Colab).
+# Grade do artigo: 128x128 com 1,25 mm; 10 fatias SAX adquiridas em k = 7, 12, ..., 52.
+# O espaçamento em k é por sujeito (distância entre fatias / 5), por isso sa_spacing[2] não é usado.
+data:
+  root: data/dsb
+  height: 128
+  width: 128
+  depth: 64
+  sa_spacing: [1.25, 1.25, 2.0]
+  lax_spacing: [1.25, 1.25, 2.0]
+  sa_slices: [7, 12, 17, 22, 27, 32, 37, 42, 47, 52]
+  mesh_around: 160
+  mesh_long: 68
+  seed: 0
+
+model:
+  width: 64
+  width_3d: 32
+  views: [sa, 2ch, 4ch]   # entradas da rede
+  shape_views: [sa, 4ch]  # o 2CH não tem miocárdio segmentado (o modelo do Bai só segmenta o átrio)
+
+recon:
+  epochs: 100
+  batch_size: 4           # o artigo usa 5; 4 cabe numa T4 (16 GB)
+  lr: 1.0e-4
+  num_workers: 2
+  tau: 3.0
+  lambda1: 20.0
+  beta1: 0.5
+  gamma1: 0.5
+  shape_weight: 1.0
+  sa_slice_stride: 1
+  use_acquired_slices: true  # L_shape só nas fatias adquiridas (as interpoladas não são rótulos)
+
+motion:
+  epochs: 100
+  batch_size: 2           # o artigo usa 8; a parte 3D em 128x128x64 é pesada para uma T4 (16 GB)
+  lr: 1.0e-4
+  num_workers: 2
+  tau: 3.0
+  lambda2: 150.0
+  beta2: 20.0
+  gamma2: 0.5
+  shape_weight: 1.0
+  use_gt_ed_mesh: false
+
+eval:
+  slice_band: 0.3
+  sa_eval_slices: [1, 5, 8]  # basal, médio e apical (índices em sa_slices)
+
+output:
+  models: models/real
+  runs: runs/real
+  results: outputs/real

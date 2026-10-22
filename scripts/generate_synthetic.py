@@ -60,13 +60,11 @@ def main():
     rng = np.random.default_rng(d.seed)
 
     topo = M.build_topology(d.mesh_around, d.mesh_long)
-    template_local = M.lv_vertices(M.TEMPLATE_SHAPE, topo)
     # GT meshes use a different resolution, like marching-cubes meshes in the paper
     gt_topo = M.build_topology(int(round(d.mesh_around * 1.25)), int(round(d.mesh_long * 1.25)))
 
     os.makedirs(d.root, exist_ok=True)
-    np.savez(os.path.join(d.root, "template.npz"), verts=template_local.astype(np.float32),
-             faces=topo.faces, n_around=d.mesh_around, n_long=d.mesh_long)
+    template_local = M.save_template(os.path.join(d.root, "template.npz"), d.mesh_around, d.mesh_long)
     print(f"template: {topo.n_verts} vertices, {len(topo.faces)} faces")
 
     for split, n in (("train", d.n_train), ("val", d.n_val), ("test", d.n_test)):

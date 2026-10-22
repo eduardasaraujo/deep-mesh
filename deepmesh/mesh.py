@@ -103,18 +103,27 @@ def template_mesh(n_around, n_long):
     return lv_vertices(TEMPLATE_SHAPE, topo), topo.faces
 
 
+def save_template(path, n_around, n_long):
+    """Write the template (local frame) used by every subject of a dataset; returns its vertices."""
+    topo = build_topology(n_around, n_long)
+    verts = lv_vertices(TEMPLATE_SHAPE, topo)
+    np.savez(path, verts=verts.astype(np.float32), faces=topo.faces, n_around=n_around, n_long=n_long)
+    return verts
+
+
 def unique_edges(faces):
     e = np.concatenate([faces[:, [0, 1]], faces[:, [1, 2]], faces[:, [2, 0]]])
     e = np.sort(e, axis=1)
     return np.unique(e, axis=0)
 
 
-def align_template(template_local, sa_affine, affine_2ch, affine_4ch, sa_depth):
+def align_template(template_local, sa_affine, affine_2ch, affine_4ch, sa_depth, centre=None):
     """Move the template into subject space using only image-header geometry.
 
     This is the pre-processing step of Fig. 11: the long axis is the intersection
     line of the 2CH and 4CH planes, and the LV centre is where that line crosses
-    the middle SAX slice.
+    the middle SAX slice. A known LV centre (e.g. from a segmentation) can be
+    given instead; the axis direction still comes from the long-axis planes.
     """
     def unit(v):
         return v / np.linalg.norm(v)
@@ -130,10 +139,11 @@ def align_template(template_local, sa_affine, affine_2ch, affine_4ch, sa_depth):
     y_hat = np.cross(axis, x_hat)
     rot = np.stack([x_hat, y_hat, axis], 1)
 
-    mid = sa_affine @ np.array([0.0, 0.0, (sa_depth - 1) / 2, 1.0])
-    normals = np.stack([n_2ch, n_4ch, n_sa])
-    offsets = np.array([n_2ch @ affine_2ch[:3, 3], n_4ch @ affine_4ch[:3, 3], n_sa @ mid[:3]])
-    centre = np.linalg.solve(normals, offsets)
+    if centre is None:
+        mid = sa_affine @ np.array([0.0, 0.0, (sa_depth - 1) / 2, 1.0])
+        normals = np.stack([n_2ch, n_4ch, n_sa])
+        offsets = np.array([n_2ch @ affine_2ch[:3, 3], n_4ch @ affine_4ch[:3, 3], n_sa @ mid[:3]])
+        centre = np.linalg.solve(normals, offsets)
     return template_local @ rot.T + centre
 
 

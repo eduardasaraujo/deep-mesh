@@ -19,6 +19,7 @@ model:
   width: 64
   width_3d: 32
   views: [sa, 2ch, 4ch]
+  shape_views: null     # vistas supervisionadas pela L_shape; null = as mesmas de views
 
 recon:
   epochs: 300

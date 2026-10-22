@@ -49,6 +49,10 @@ class Subject:
         return data if view == "sa" else data[..., 0]
 
     def label(self, view, t):
+        if not os.path.exists(os.path.join(self.path, f"{view}_myo.nii.gz")):
+            # view without segmentation (e.g. 2CH of real data): empty label
+            shape = self._load(view).shape[:3]
+            return np.zeros(shape if view == "sa" else shape[:2], np.uint8)
         data = np.asanyarray(self._load(f"{view}_myo").dataobj)[..., t]
         return data if view == "sa" else data[..., 0]
 
