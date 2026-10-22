@@ -14,12 +14,14 @@ from torch.utils.data import DataLoader
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from deepmesh.config import base_parser, get_device, load_config  # noqa: E402
 from deepmesh.data import MotionDataset, load_template  # noqa: E402
-from deepmesh.engine import Logger, fmt, run_epoch, save_checkpoint  # noqa: E402
+from deepmesh.engine import Logger, fmt, resume, run_epoch, save_checkpoint  # noqa: E402
 from deepmesh.pipeline import build_motion_net, motion_loss, track  # noqa: E402
 
 
 def main():
-    args = base_parser(__doc__).parse_args()
+    p = base_parser(__doc__)
+    p.add_argument("--resume", action="store_true", help="continue from <models>/motion/last.pth")
+    args = p.parse_args()
     cfg = load_config(args.config, args.set)
     device = get_device(args.device)
     torch.manual_seed(cfg.data.seed)
@@ -42,11 +44,13 @@ def main():
         return motion_loss(verts, field, batch, edges, cfg)
 
     model_dir = os.path.join(cfg.output.models, "motion")
-    logger = Logger(os.path.join(cfg.output.runs, "motion"))
+    first, best = 1, float("inf")
+    if args.resume:
+        first, best = resume(os.path.join(model_dir, "last.pth"), net, optimizer, device)
+    logger = Logger(os.path.join(cfg.output.runs, "motion"), first)
     print(f"device={device} params={sum(p.numel() for p in net.parameters()):,} "
           f"train={len(train_loader.dataset)} val={len(val_loader.dataset)} gt_ed_mesh={c.use_gt_ed_mesh}")
-    best = float("inf")
-    for epoch in range(1, c.epochs + 1):
+    for epoch in range(first, c.epochs + 1):
         start = time.time()
         train = run_epoch(net, train_loader, loss_fn, device, optimizer, desc=f"train {epoch}")
         val = run_epoch(net, val_loader, loss_fn, device, desc=f"val {epoch}")
@@ -55,7 +59,7 @@ def main():
         if val["total"] < best:
             best = val["total"]
             save_checkpoint(os.path.join(model_dir, "best.pth"), net, epoch, best, args.config)
-        save_checkpoint(os.path.join(model_dir, "last.pth"), net, epoch, val["total"], args.config)
+        save_checkpoint(os.path.join(model_dir, "last.pth"), net, epoch, val["total"], args.config, optimizer, best)
     logger.close()
     print(f"best val loss {best:.4f} -> {model_dir}/best.pth")
 

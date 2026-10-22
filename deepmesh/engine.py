@@ -31,9 +31,13 @@ def run_epoch(net, loader, loss_fn, device, optimizer=None, desc=""):
     return {k: v / n for k, v in sums.items()}
 
 
-def save_checkpoint(path, net, epoch, val_loss, config_path):
+def save_checkpoint(path, net, epoch, val_loss, config_path, optimizer=None, best=None):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    torch.save(dict(model=net.state_dict(), epoch=epoch, val_loss=val_loss, config=config_path), path)
+    state = dict(model=net.state_dict(), epoch=epoch, val_loss=val_loss, config=config_path, best=best)
+    if optimizer is not None:
+        state["optimizer"] = optimizer.state_dict()
+    torch.save(state, path + ".tmp")
+    os.replace(path + ".tmp", path)  # never leave a half-written checkpoint (e.g. Colab disconnects)
 
 
 def load_checkpoint(path, net, device):
@@ -42,14 +46,30 @@ def load_checkpoint(path, net, device):
     return ckpt
 
 
+def resume(path, net, optimizer, device):
+    """Continue from `path` if it exists; returns (first epoch to run, best validation loss)."""
+    if not os.path.exists(path):
+        return 1, float("inf")
+    ckpt = torch.load(path, map_location=device, weights_only=True)
+    net.load_state_dict(ckpt["model"])
+    if "optimizer" in ckpt:
+        optimizer.load_state_dict(ckpt["optimizer"])
+    best = ckpt.get("best")
+    print(f"resuming after epoch {ckpt['epoch']} from {path}")
+    return ckpt["epoch"] + 1, float("inf") if best is None else best
+
+
 class Logger:
     """TensorBoard scalars plus a CSV history (one row per epoch)."""
 
-    def __init__(self, run_dir):
+    def __init__(self, run_dir, first_epoch=1):
         os.makedirs(run_dir, exist_ok=True)
         self.writer = SummaryWriter(run_dir)
         self.csv_path = os.path.join(run_dir, "history.csv")
         self.rows = []
+        if first_epoch > 1 and os.path.exists(self.csv_path):  # resumed run: keep earlier epochs
+            with open(self.csv_path) as f:
+                self.rows = [r for r in csv.DictReader(f) if int(r["epoch"]) < first_epoch]
 
     def log(self, epoch, train, val, seconds):
         row = {"epoch": epoch, "seconds": round(seconds, 1)}
