@@ -30,12 +30,20 @@ TRAIN_SPACING = 1.8
 
 
 def download_models(model_dir, names=MODELS.values()):
+    """Download the checkpoints; files whose size differs from the server's are fetched again."""
     os.makedirs(model_dir, exist_ok=True)
     for name in names:
         for ext in ("meta", "index", "data-00000-of-00001"):
-            path = os.path.join(model_dir, f"{name}.{ext}")
-            if not os.path.exists(path):
-                urllib.request.urlretrieve(f"{MODEL_URL}{name}.{ext}", path)
+            url, path = f"{MODEL_URL}{name}.{ext}", os.path.join(model_dir, f"{name}.{ext}")
+            with urllib.request.urlopen(urllib.request.Request(url, method="HEAD")) as r:
+                size = int(r.headers["Content-Length"])
+            if os.path.exists(path) and os.path.getsize(path) == size:
+                continue
+            urllib.request.urlretrieve(url, path + ".part")
+            if os.path.getsize(path + ".part") != size:
+                raise IOError(f"incomplete download of {url}")
+            os.replace(path + ".part", path)  # never leave a truncated checkpoint behind
+            print(f"downloaded {name}.{ext} ({size / 1e6:.1f} MB)")
 
 
 def rescale_intensity(image, thres=(1.0, 99.0)):
