@@ -1,5 +1,5 @@
 # Dados reais (Kaggle Data Science Bowl Cardiac + segmentações de Bai et al.) em GPU (Colab).
-# Grade do artigo: 128x128 com 1,25 mm; 10 fatias SAX adquiridas em k = 7, 12, ..., 52.
+# Grade do artigo: 128x128 com 1,25 mm; 9 fatias SAX adquiridas em k = 12, 17, ..., 52 (como no artigo).
 # O espaçamento em k é por sujeito (distância entre fatias / 5), por isso sa_spacing[2] não é usado.
 data:
   root: data/dsb
@@ -8,7 +8,7 @@ data:
   depth: 64
   sa_spacing: [1.25, 1.25, 2.0]
   lax_spacing: [1.25, 1.25, 2.0]
-  sa_slices: [7, 12, 17, 22, 27, 32, 37, 42, 47, 52]
+  sa_slices: [12, 17, 22, 27, 32, 37, 42, 47, 52]
   mesh_around: 160
   mesh_long: 68
   seed: 0
@@ -46,7 +46,7 @@ motion:
 
 eval:
   slice_band: 0.3
-  sa_eval_slices: [1, 5, 8]  # basal, médio e apical (índices em sa_slices)
+  sa_eval_slices: [1, 4, 7]  # basal, médio e apical (índices em sa_slices), como no artigo
 
 output:
   models: models/real

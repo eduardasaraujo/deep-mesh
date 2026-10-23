@@ -12,11 +12,14 @@ import json
 import os
 import sys
 import zlib
-from multiprocessing import Pool
+import multiprocessing
+
+import torch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from deepmesh import mesh as M  # noqa: E402
-from deepmesh.config import base_parser, load_config  # noqa: E402
+from deepmesh.config import base_parser, get_device, load_config  # noqa: E402
+from deepmesh.real import prepare as R  # noqa: E402
 from deepmesh.real.prepare import prepare_subject, write_subject  # noqa: E402
 
 _STATE = {}
@@ -30,8 +33,10 @@ def split_of(name, fractions):
     return "val" if u < fractions[0] + fractions[1] else "test"
 
 
-def _init(d, template, fractions):
+def _init(d, template, fractions, device):
     _STATE.update(d=d, template=template, fractions=fractions)
+    torch.set_num_threads(1)  # one process per CPU core
+    R.DEVICE["device"] = torch.device(device)
 
 
 def _work(native_dir):
@@ -69,7 +74,10 @@ def main():
         os.makedirs(os.path.join(d.root, folder), exist_ok=True)
     template = M.save_template(os.path.join(d.root, "template.npz"), d.mesh_around, d.mesh_long)
     rows = []
-    with Pool(args.workers, _init, (d, template, fractions)) as pool:
+    device = str(get_device(args.device))  # resampling on the GPU when there is one
+    print(f"device={device} workers={args.workers}", flush=True)
+    ctx = multiprocessing.get_context("spawn")  # CUDA cannot be used in forked workers
+    with ctx.Pool(args.workers, _init, (d, template, fractions, device)) as pool:
         for i, row in enumerate(pool.imap_unordered(_work, subjects), 1):
             rows.append(row)
             print(f"[{i}/{len(subjects)}] {row['name']}: {row['reject'] or row['split']}", flush=True)
