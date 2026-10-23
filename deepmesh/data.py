@@ -1,6 +1,7 @@
 """Datasets for the two training stages (see scripts/generate_synthetic.py for the layout)."""
 import json
 import os
+import zlib
 
 import nibabel as nib
 import numpy as np
@@ -80,6 +81,21 @@ def _images(subj, t):
             "4ch": torch.from_numpy(subj.frame("4ch", t))[None]}
 
 
+GT_SURFACE_POINTS = 10000
+
+
+def fixed_points(points, n, name):
+    """Exactly n points of a GT surface so that subjects can be batched.
+
+    Marching-cubes surfaces of real data have a different vertex count per subject;
+    the Chamfer loss compares point sets, so a subset (or, if smaller, a sample with
+    repetition) is equivalent. Seeded by the subject name: the same points every epoch.
+    """
+    rng = np.random.default_rng(zlib.crc32(name.encode()))
+    idx = rng.choice(len(points), n, replace=len(points) < n)
+    return torch.from_numpy(np.ascontiguousarray(points[idx], dtype=np.float32))
+
+
 def list_subjects(split_dir):
     if not os.path.isdir(split_dir):  # e.g. a split that received no subject
         return []
@@ -104,7 +120,7 @@ class ReconstructionDataset(Dataset):
             contour_2ch=torch.from_numpy(contour(s.label("2ch", t))),
             contour_4ch=torch.from_numpy(contour(s.label("4ch", t))),
             template=torch.from_numpy(s.array("template_aligned.npy")),
-            gt_surface=torch.from_numpy(s.array("gt_surface_ed.npz")),
+            gt_surface=fixed_points(s.array("gt_surface_ed.npz"), GT_SURFACE_POINTS, s.name),
         )
 
 
@@ -160,5 +176,5 @@ class MotionDataset(Dataset):
             item["gt_verts_t"] = torch.from_numpy(gt_vertices[t])
             item["gt_verts_ed"] = torch.from_numpy(gt_vertices[ed])
         if with_es_surface:
-            item["gt_surface"] = torch.from_numpy(s.array("gt_surface_es.npz"))
+            item["gt_surface"] = fixed_points(s.array("gt_surface_es.npz"), GT_SURFACE_POINTS, s.name)
         return item

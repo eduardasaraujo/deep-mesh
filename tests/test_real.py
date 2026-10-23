@@ -152,3 +152,16 @@ def test_convert_zip_nested(study, tmp_path):
     assert (tmp_path / "native" / "dsb_7" / "sa.nii.gz").exists()
     assert not any((tmp_path / "work").iterdir())  # scratch space cleaned
     shutil.rmtree(tmp_path / "native")
+
+
+def test_gt_surfaces_of_different_sizes_can_be_batched():
+    import torch
+    from torch.utils.data import default_collate
+
+    from deepmesh.data import fixed_points
+
+    a = fixed_points(np.random.rand(15080, 3), 1000, "s1")
+    b = fixed_points(np.random.rand(800, 3), 1000, "s2")  # smaller than n: sampled with repetition
+    assert default_collate([a, b]).shape == (2, 1000, 3)
+    pts = np.random.rand(5000, 3)
+    assert torch.equal(fixed_points(pts, 1000, "s1"), fixed_points(pts, 1000, "s1"))  # same points every epoch
