@@ -45,6 +45,7 @@ motion:
   gamma2: 0.5           # L_reg
   shape_weight: 1.0     # L_shape
   use_gt_ed_mesh: false # true = usa a malha ED verdadeira em vez da reconstruída (debug)
+  es_prob: 0.0          # fração dos frames de treino sorteados perto do ES (0 = sorteio uniforme)
 
 eval:
   slice_band: 0.3       # |d| < 0.3 voxel para extrair o contorno da malha (código original)

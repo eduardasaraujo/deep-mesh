@@ -131,11 +131,15 @@ class MotionDataset(Dataset):
     frame (validation/test, the frame with the largest deformation); an int fixes t.
     """
 
-    def __init__(self, split_dir, sa_slices, frame=None, use_gt_ed_mesh=False):
+    def __init__(self, split_dir, sa_slices, frame=None, use_gt_ed_mesh=False, es_prob=0.0, es_window=2):
         self.subjects = list_subjects(split_dir)
         self.sa_slices = list(sa_slices)
         self.frame = frame
         self.use_gt_ed_mesh = use_gt_ed_mesh
+        # training only: with probability es_prob, t is drawn within +-es_window frames of ES
+        # (systolic frames carry most of the motion; a uniform draw is dominated by near-ED frames)
+        self.es_prob = es_prob
+        self.es_window = es_window
 
     def __len__(self):
         return len(self.subjects)
@@ -153,7 +157,12 @@ class MotionDataset(Dataset):
         s = self.subjects[idx]
         if self.frame is None:
             # torch RNG: correctly re-seeded in every DataLoader worker
-            t = int(torch.randint(s.meta["n_frames"], ()))
+            n = s.meta["n_frames"]
+            if float(torch.rand(())) < self.es_prob:
+                offset = int(torch.randint(-self.es_window, self.es_window + 1, ()))
+                t = (s.meta["es_frame"] + offset) % n
+            else:
+                t = int(torch.randint(n, ()))
         elif self.frame == "es":
             t = s.meta["es_frame"]
         else:

@@ -28,7 +28,8 @@ def main():
     c, d = cfg.motion, cfg.data
 
     def dataset(split, frame):
-        return MotionDataset(os.path.join(d.root, split), d.sa_slices, frame, c.use_gt_ed_mesh)
+        return MotionDataset(os.path.join(d.root, split), d.sa_slices, frame, c.use_gt_ed_mesh,
+                             es_prob=getattr(c, "es_prob", 0.0))
 
     train_loader = DataLoader(dataset("train", None), c.batch_size, shuffle=True,
                               num_workers=c.num_workers, drop_last=True)

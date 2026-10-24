@@ -43,6 +43,7 @@ motion:
   gamma2: 0.5
   shape_weight: 1.0
   use_gt_ed_mesh: false
+  es_prob: 0.0          # fração dos frames de treino sorteados perto do ES (0 = sorteio uniforme)
 
 eval:
   slice_band: 0.3

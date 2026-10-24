@@ -47,3 +47,11 @@ def test_dataset_items(dataset):
     assert m["contour_sa"].shape == (cfg.height, cfg.width, len(cfg.sa_slices))
     assert m["ed_verts"].shape == m["gt_verts_t"].shape
     assert "gt_surface" in m
+
+
+def test_es_biased_frame_sampling(dataset):
+    root, cfg, out = dataset
+    es = out["subject"]["es_frame"]
+    ds = MotionDataset(str(root / "train"), cfg.sa_slices, use_gt_ed_mesh=True, es_prob=1.0, es_window=1)
+    frames = {ds[0]["frame"] for _ in range(20)}
+    assert frames <= {(es - 1) % cfg.n_frames, es, (es + 1) % cfg.n_frames}

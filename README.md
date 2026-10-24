@@ -278,13 +278,30 @@ Partindo da malha ED reconstruída (200 épocas). "Sem movimento" usa a própria
 | Sem movimento | 16,35 (7,58) | 19,91 (6,36) | 48,56 (8,75) | 52,69 (11,00) | 4,35 (1,43) |
 | DeepMesh | **15,89** (7,90) | **18,50** (7,14) | **51,05** (7,88) | **55,80** (11,26) | **4,20** (1,39) |
 
+<p align="center"><img src="docs/figures/real/contours.png" width="85%"></p>
+
+*Sujeito de teste dsb_103. Verde: contorno da segmentação; vermelho: malha prevista. Os contornos
+vermelhos quase não mudam ao longo do ciclo, enquanto o verde contrai no ES (t=10). Malhas ED/ES:
+[docs/figures/real/meshes.png](docs/figures/real/meshes.png) (a prevista no ES é quase igual à do ED);
+curvas de treino: [docs/figures/real/curves.png](docs/figures/real/curves.png) (a `train_shape` do
+movimento fica estável em ~44 durante as 100 épocas); animação: [docs/figures/real/cycle.gif](docs/figures/real/cycle.gif).*
+
 O rastreamento melhora todas as métricas, mas **pouco** (HD −3% no SAX e −7% no 4CH; BoundF +2,5 e
-+3,1 pontos); nos dados sintéticos o ganho no HD foi de 16–23%. O maior ganho está no 4CH, onde
++3,1 pontos); nos dados sintéticos o ganho no HD foi de 16–23%. As figuras mostram por quê: **a rede
+de movimento quase não deforma a malha**. O maior ganho está no 4CH, onde
 aparece a descida da base, como no artigo. Hipóteses para o ganho pequeno, a testar:
 
 1. **Amostragem dos frames:** no treino, t é sorteado no ciclo inteiro, e a maior parte dos frames
    tem pouco movimento; a validação usa sempre o ES, o frame mais difícil. Sortear com mais
-   frequência os frames perto do ES deve ajudar.
+   frequência os frames perto do ES deve ajudar: `--set motion.es_prob=0.5` faz metade dos sorteios
+   cair a até 2 frames do ES.
+
+Diagnóstico feito com um sujeito real (UK Biobank, demonstração do `ukbb_cardiac`): otimizando o
+campo **diretamente**, as losses movem a malha ~6 mm do ED para o ES (L_shape 49,7 → 44,7), e a
+**rede**, treinada só nesse sujeito com a taxa do artigo (1e-4), chega ao mesmo nível em 300
+iterações (49,7 → 43,7); com 1e-3 fica instável. Ou seja, não há erro nas losses nem na rede: no
+treino com 593 sujeitos ela não está conseguindo **generalizar** o movimento. Reduzir λ2 (suavidade)
+ajuda pouco e deixa a malha irregular.
 2. **Supervisão mais fraca que a do artigo:** rótulos automáticos e sem o 2CH.
 3. **Diferença treino × validação** na L_shape (~43 contra ~60): parte vem do frame avaliado (ES),
    parte pode ser *overfitting*. Para separar, avaliar os sujeitos de treino no ES.
