@@ -149,9 +149,9 @@ com os frames ED/ES. O `gt_vertices.npy` é opcional.
 
 ## Limitações
 
-* Os resultados abaixo vêm de **dados sintéticos** em **CPU** e com redes mais estreitas.
-  Eles mostram que o método funciona e se comporta como no artigo, mas **não são
-  comparáveis** aos números do artigo (UK Biobank, GPU de 24 GB, 300 épocas).
+* Nenhum resultado deste repositório é **comparável** aos números do artigo: os sintéticos vêm de
+  fantomas em CPU com redes estreitas; os reais vêm do Kaggle com rótulos automáticos, não do
+  UK Biobank com rótulos manuais.
 * Os métodos de comparação da Tabela II (FFD, dDemons, 3D-UNet, MulViMotion, MeshMotion)
   não estão no repositório original e não foram reimplementados.
 * **Dados reais (Kaggle):** os rótulos são automáticos (modelos treinados no UK Biobank, aplicados a
@@ -242,13 +242,60 @@ enquanto adicionar 2CH e 4CH melhora as vistas longas. Só com SAX, a malha **pi
 em relação a "sem movimento" (14,93/15,34 contra 14,88/14,89 mm), porque o movimento através do
 plano SAX não é observado. Com o treino curto, esta comparação é indicativa.
 
+## Resultados com dados reais (Kaggle DSB + segmentações de Bai et al.)
+
+Pipeline de [notebooks/02_kaggle_dsb_deepmesh.ipynb](notebooks/02_kaggle_dsb_deepmesh.ipynb) no Colab,
+GPU **L4**, config [configs/real.yaml](configs/real.yaml): grade do artigo (128×128×64, 1,25 mm,
+9 fatias SAX em k = 12…52) e redes com a largura do artigo (`width=64`, `width_3d=32`).
+
+* **Dados:** 1.140 estudos → 1.109 convertidos (30 sem alguma vista, 1 com erro) → **726 passaram no
+  controle de qualidade**, divididos em 593 / 71 / 62 (treino / validação / teste). O artigo usa 530 sujeitos.
+* **Etapa 1:** 200 épocas, batch 4 (~29.600 iterações, ~6h30). **Etapa 2:** 100 épocas, batch 2
+  (~29.600 iterações, ~5h20). O artigo faz ~24.000 iterações por etapa.
+* O **2CH não tem miocárdio segmentado** (o modelo do Bai para o 2CH só segmenta o átrio): ele entra
+  como imagem, mas não é supervisionado nem avaliado (`-` nas tabelas).
+
+HD em mm, BoundF em %, distância de superfície em mm; média (desvio), 62 sujeitos de teste.
+
+### Etapa 1 — reconstrução da malha ED
+
+| Método | HD SAX | HD 4CH | BoundF SAX | BoundF 4CH | Dist. superfície |
+|---|---|---|---|---|---|
+| Template alinhado (sem rede) | 16,88 (4,69) | 21,08 (6,38) | 37,57 (11,92) | 41,76 (14,43) | 6,94 (1,95) |
+| DeepMesh, 100 épocas | 13,16 (4,13) | 16,77 (5,97) | 64,96 (8,30) | 62,17 (13,54) | 3,32 (0,78) |
+| DeepMesh, 200 épocas | **10,90** (4,22) | **14,97** (5,47) | **70,94** (8,11) | **69,52** (12,48) | **2,74** (0,72) |
+
+Com dados reais a reconstrução funciona bem: a distância à superfície cai de 6,9 para **2,7 mm**
+(cerca de 2 pixels) e o BoundF sobe ~30 pontos. Ao contrário dos dados sintéticos, treino e validação
+andam juntos (sem *overfitting*) e a validação ainda melhorava na época 200.
+
+### Etapa 2 — rastreamento ED → ES
+
+Partindo da malha ED reconstruída (200 épocas). "Sem movimento" usa a própria malha ED como ES.
+
+| Método | HD SAX | HD 4CH | BoundF SAX | BoundF 4CH | Dist. superfície |
+|---|---|---|---|---|---|
+| Sem movimento | 16,35 (7,58) | 19,91 (6,36) | 48,56 (8,75) | 52,69 (11,00) | 4,35 (1,43) |
+| DeepMesh | **15,89** (7,90) | **18,50** (7,14) | **51,05** (7,88) | **55,80** (11,26) | **4,20** (1,39) |
+
+O rastreamento melhora todas as métricas, mas **pouco** (HD −3% no SAX e −7% no 4CH; BoundF +2,5 e
++3,1 pontos); nos dados sintéticos o ganho no HD foi de 16–23%. O maior ganho está no 4CH, onde
+aparece a descida da base, como no artigo. Hipóteses para o ganho pequeno, a testar:
+
+1. **Amostragem dos frames:** no treino, t é sorteado no ciclo inteiro, e a maior parte dos frames
+   tem pouco movimento; a validação usa sempre o ES, o frame mais difícil. Sortear com mais
+   frequência os frames perto do ES deve ajudar.
+2. **Supervisão mais fraca que a do artigo:** rótulos automáticos e sem o 2CH.
+3. **Diferença treino × validação** na L_shape (~43 contra ~60): parte vem do frame avaliado (ES),
+   parte pode ser *overfitting*. Para separar, avaliar os sujeitos de treino no ES.
+
 ### Próximos passos sugeridos
 
-* Rodar a config `paper` numa GPU (≥ 24 GB) com o mesmo código, ou treinar mais em CPU
-  (`--set motion.epochs=...`): as curvas de validação ainda estavam caindo.
+* Testar as hipóteses acima para melhorar o movimento com dados reais (amostragem de frames perto
+  do ES, avaliação no conjunto de treino, mais épocas).
 * Separar o erro do movimento do erro da reconstrução treinando o movimento com a malha ED
-  verdadeira (`--set motion.use_gt_ed_mesh=true`).
-* Trocar os fantomas por dados reais com segmentações SAX/LAX, no formato descrito acima.
+  verdadeira (`--set motion.use_gt_ed_mesh=true`, nos dados sintéticos).
+* Validar com segmentações manuais (CMRxRecon, M&Ms-2) quando houver acesso.
 
 ## Referência
 
